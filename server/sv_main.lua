@@ -23,7 +23,8 @@ RegisterNetEvent("RoSA-Certifications:Server:RequestPlayerList", function()
                 table.insert(players, {
                     id = tonumber(id),
                     name = string.format("(%d) | [%s] %s %s", id, callsign, firstname, lastname),
-                    job = job
+                    job = job,
+                    licenses = metadata.licences or {}
                 })
             end
         end
