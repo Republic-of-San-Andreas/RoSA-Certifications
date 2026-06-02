@@ -1,5 +1,5 @@
 --[[ Version Checker ]] --
-local version = "120"
+local version = "131"
 
 local function SendDiscord(color, name, message, footer)
     local content = {
