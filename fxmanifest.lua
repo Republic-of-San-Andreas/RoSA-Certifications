@@ -19,7 +19,8 @@ shared_scripts {
     '@ox_lib/init.lua',
 }
 
-server_scripts { 
+server_scripts {
+    '@oxmysql/lib/MySQL.lua',
     'server/sv_settings.lua',
     'server/sv_main.lua',
     'server/sv_github.lua'
