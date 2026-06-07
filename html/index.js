@@ -4,138 +4,156 @@ const showMessage = (type, text) => {
     msg.style.color = type === "success" ? "lightgreen" : "red";
 };
 
+const closeUI = () => {
+    document.body.style.display = "none";
+    document.getElementById("tablet").style.display = "none";
+    window._mode = "certificates";
+    window._optionList = {};
+    window._certPlayers = {};
+};
+
+const getAllowedTypes = (required) => {
+    if (Array.isArray(required)) {
+        return required.map(r => String(r).toLowerCase());
+    }
+
+    if (typeof required === "string" && required.trim() !== "") {
+        return [required.toLowerCase()];
+    }
+
+    return [];
+};
+
+const hasAward = (player, awardInfo) => {
+    const awards = Array.isArray(player.awards) ? player.awards : [];
+    const title = String(awardInfo.id || "");
+
+    return awards.some(entry => {
+        return entry && typeof entry === "object" && String(entry.title || "") === title;
+    });
+};
+
+const hasCertificate = (player, optionInfo) => {
+    const licenses = player.licenses || {};
+    return !!licenses[optionInfo.id];
+};
+
+const refreshCheckboxesForPlayer = (player) => {
+    const playerJob = String(player.job || "").toLowerCase();
+    const isAwardsMode = window._mode === "awards";
+
+    Object.entries(window._optionList || {}).forEach(([key, info]) => {
+        const checkbox = document.getElementById(key);
+        if (!checkbox) return;
+
+        const allowedTypes = getAllowedTypes(info.required);
+        const isAllowed = allowedTypes.length === 0 || allowedTypes.includes(playerJob);
+
+        checkbox.disabled = !isAllowed;
+
+        if (isAwardsMode) {
+            checkbox.checked = hasAward(player, info);
+        } else {
+            checkbox.checked = hasCertificate(player, info);
+        }
+    });
+};
+
 window.addEventListener("message", function (event) {
     const data = event.data;
-    if (data.type === "openUI") {
-        // console.log("Received licenseList:", data.licenseList);
 
+    if (data.type === "openUI") {
         document.body.style.display = "flex";
         document.getElementById("tablet").style.display = "flex";
 
+        const title = document.querySelector(".tablet-screen h2");
+        title.innerHTML = data.mode === "awards"
+            ? '<i class="fas fa-medal"></i> Grant/Revoke Awards'
+            : '<i class="fas fa-id-badge"></i> Grant/Revoke Certifications';
+
         const select = document.getElementById("playerSelect");
-        select.innerHTML = '<option disabled selected>Select a player</option>';
-        window._licenseList = {};
+        select.innerHTML = '<option disabled selected value="">Select a player</option>';
+
+        window._mode = data.mode || "certificates";
+        window._optionList = data.optionList || {};
         window._certPlayers = {};
-        window._licenseList = data.licenseList || {};
-        data.players.forEach(p => {
+
+        (data.players || []).forEach(p => {
             window._certPlayers[p.id] = p;
 
-            const o = document.createElement("option");
-            o.value = p.id;
-            o.textContent = `#${p.id} - ${p.name} (${p.job})`;
-            select.appendChild(o);
+            const option = document.createElement("option");
+            option.value = p.id;
+            option.textContent = `#${p.id} - ${p.name} (${p.job})`;
+            select.appendChild(option);
         });
 
-        // Reset checkboxes
-        // document.querySelectorAll('.checkboxes input[type=checkbox]').forEach(cb => {
-        //     cb.checked = false;
-        //     cb.disabled = true;
-        // });
         const container = document.getElementById("licenseCheckboxes");
-        container.innerHTML = ""; // Clear previous entries
+        container.innerHTML = "";
 
-        data.licenseList && Object.entries(data.licenseList).forEach(([key, info]) => {
+        Object.entries(window._optionList).forEach(([key, info]) => {
             const label = document.createElement("label");
             label.innerHTML = `<input type="checkbox" id="${key}" /> ${info.label}`;
             container.appendChild(label);
         });
 
-        showMessage("success", "Select a player to view certifications");
+        showMessage("success", data.mode === "awards"
+            ? "Select a player to view awards"
+            : "Select a player to view certifications");
+    }
+
+    if (data.type === "closeUI") {
+        closeUI();
     }
 });
 
 document.getElementById("playerSelect").addEventListener("change", function () {
     const selectedId = this.value;
     const player = window._certPlayers[selectedId] || {};
-    const licenses = player.licenses || {};
-    const job = (player.job || "").toUpperCase();
-    const isEMS = job === "EMS" || job === "FIRE";
 
-    // document.getElementById("opt1").checked = !!licenses["service_taser"];
-    // document.getElementById("opt2").checked = !!licenses["service_pistol"];
-    // document.getElementById("opt3").checked = !!licenses["service_shotgun"];
-    // document.getElementById("opt4").checked = !!licenses["service_rifle"];
-    // document.getElementById("opt5").checked = !!licenses["service_sniper"];
-    // document.getElementById("opt6").checked = !!licenses["service_pdw"];
-    // document.getElementById("opt7").checked = !!licenses["service_40mm"];
-    // document.getElementById("opt8").checked = !!licenses["swat"];
+    refreshCheckboxesForPlayer(player);
 
-    // // Enable/disable
-    // document.getElementById("opt1").disabled = false;
-    // document.getElementById("opt2").disabled = false;
-    // document.getElementById("opt3").disabled = isEMS;
-    // document.getElementById("opt4").disabled = isEMS;
-    // document.getElementById("opt5").disabled = isEMS;
-    // document.getElementById("opt6").disabled = isEMS;
-    // document.getElementById("opt7").disabled = isEMS;
-    // document.getElementById("opt8").disabled = isEMS;
-
-    Object.entries(window._licenseList || {}).forEach(([key, info]) => {
-        const checkbox = document.getElementById(key);
-        if (checkbox) {
-            checkbox.checked = !!licenses[info.id];
-            checkbox.disabled = isEMS;
-        }
-    });
-
-
-    showMessage("success", `Loaded certifications for ${player.name || 'Unknown'}`);
+    showMessage(
+        "success",
+        window._mode === "awards"
+            ? `Loaded awards for ${player.name || "Unknown"}`
+            : `Loaded certifications for ${player.name || "Unknown"}`
+    );
 });
-
-
-// document.getElementById("submitBtn").addEventListener("click", () => {
-//     const id = document.getElementById("playerSelect").value;
-//     const payload = {
-//         targetId: id,
-//         options: {
-//             opt1: document.getElementById("opt1").checked,
-//             opt2: document.getElementById("opt2").checked,
-//             opt3: document.getElementById("opt3").checked,
-//             opt4: document.getElementById("opt4").checked,
-//             opt5: document.getElementById("opt5").checked,
-//             opt6: document.getElementById("opt6").checked,
-//             opt7: document.getElementById("opt7").checked,
-//             opt8: document.getElementById("opt8").checked
-//         }
-//     };
-
-//     fetch(`https://${GetParentResourceName()}/SubmitSelection`, {
-//         method: "POST",
-//         body: JSON.stringify(payload),
-//         headers: { "Content-Type": "application/json" }
-//     });
-
-//     showMessage("success", "Submitted!");
-// });
 
 document.getElementById("submitBtn").addEventListener("click", () => {
     const id = document.getElementById("playerSelect").value;
+
+    if (!id) {
+        showMessage("error", "Please select a player first");
+        return;
+    }
+
     const options = {};
 
-    Object.keys(window._licenseList || {}).forEach(key => {
+    Object.keys(window._optionList || {}).forEach(key => {
         const checkbox = document.getElementById(key);
         options[key] = checkbox ? checkbox.checked : false;
     });
 
-    const payload = {
-        targetId: id,
-        options: options
-    };
-
     fetch(`https://${GetParentResourceName()}/SubmitSelection`, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            mode: window._mode,
+            targetId: id,
+            options: options
+        }),
         headers: { "Content-Type": "application/json" }
     });
 
-    // console.log("Submitting payload:", payload);
-    showMessage("success", "Submitted!");
+    showMessage(
+        "success",
+        window._mode === "awards" ? "Awards submitted!" : "Certifications submitted!"
+    );
 });
 
 document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
         fetch(`https://${GetParentResourceName()}/closeUI`, { method: "POST" });
-        document.body.style.display = "none";
-        document.getElementById("tablet").style.display = "none";
+        closeUI();
     }
 });
